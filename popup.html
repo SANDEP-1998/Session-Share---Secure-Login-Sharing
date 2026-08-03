@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session Share</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    html, body {
+      width: 380px;
+      height: 600px;
+      background: #F3F4F6;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      color: #111827;
+      padding: 20px 16px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    /* ---------- Responsive: Android / mobile ---------- */
+    /* NOTE: Breakpoint MUST be < 380px (desktop popup width) to avoid circular
+       dependency: width:100% → viewport depends on content → content depends on
+       viewport → Firefox oscillates → popup blink loop. */
+    @media (max-width: 360px) {
+      html, body {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      body {
+        padding: 16px 12px;
+      }
+      .container {
+        border-radius: 16px;
+      }
+    }
+
+    /* Larger touch targets on mobile */
+    @media (hover: none) and (pointer: coarse) {
+      .menu-item,
+      .card-btn,
+      .btn-danger,
+      .btn-secondary,
+      .setting-action-btn,
+      .header-icon,
+      .btn-share,
+      .delete-badge,
+      .edit-name-btn {
+        min-height: 40px;
+        min-width: 40px;
+      }
+      .menu-item {
+        padding: 16px 8px;
+        font-size: 14px;
+      }
+      .card-btn {
+        padding: 12px 14px;
+        font-size: 13px;
+      }
+      .account-card {
+        padding: 18px 14px;
+      }
+    }
+
+    .container {
+      background: #FFFFFF;
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      min-height: 400px;
+    }
+
+    /* ---------- Header ---------- */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 4px 16px;
+      border-bottom: 1px solid #F3F4F6;
+      margin-bottom: 20px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .header-search {
+      color: #6B7280;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .header-search svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .header-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .header-cookie {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+    }
+
+    .header-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+
+    .header-text .title {
+      font-size: 20px;
+      font-weight: 700;
+      background: linear-gradient(45deg, #06B6D4, #22D3EE);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.3px;
+    }
+
+    .header-text .subtitle {
+      font-size: 12px;
+      color: #6B7280;
+      margin-top: 2px;
+      font-weight: 400;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .header-icon {
+      width: 20px;
+      height: 20px;
+      color: #374151;
+      cursor: pointer;
+      transition: color 0.15s ease;
+      background: none;
+      border: none;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .header-icon:hover {
+      color: #06B6D4;
+    }
+
+    /* ---------- Primary Action Buttons ---------- */
+    .menu-list {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .menu-item {
+      flex: 1;
+      padding: 14px 8px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      color: white;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .menu-item:disabled {
+      opacity: 0.65;
+      cursor: wait;
+      transform: none;
+    }
+
+    .menu-item svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    #btn-copy {
+      background: linear-gradient(135deg, #FF8A8A, #F87171);
+    }
+
+    #btn-copy:hover:not(:disabled) {
+      background: linear-gradient(135deg, #F87171, #EF4444);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(248, 113, 113, 0.3);
+    }
+
+    #btn-paste {
+      background: linear-gradient(135deg, #86EFAC, #4ADE80);
+    }
+
+    #btn-paste:hover:not(:disabled) {
+      background: linear-gradient(135deg, #4ADE80, #22C55E);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+    }
+
+    /* ---------- Account Cards ---------- */
+    .accounts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 20px;
+    }
+
+    .account-card {
+      background: #FFFFFF;
+      border: 1px solid #E5E7EB;
+      border-radius: 14px;
+      padding: 16px;
+      position: relative;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .account-card:hover {
+      border-color: #D1D5DB;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .account-card.empty {
+      opacity: 0.85;
+    }
+
+    .account-card.has-session {
+      border-left: 3px solid #22C55E;
+      opacity: 1;
+    }
+
+    .account-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #9CA3AF;
+      flex-shrink: 0;
+    }
+
+    .account-card.has-session .account-dot {
+      background: #22C55E;
+    }
+
+    /* Favicon in saved session cards */
+    .account-favicon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      object-fit: contain;
+      background: #F3F4F6;
+    }
+
+    .account-favicon.fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #6B7280;
+      text-transform: uppercase;
+    }
+
+    body.dark .account-favicon {
+      background: #334155;
+    }
+
+    body.dark .account-favicon.fallback {
+      color: #94A3B8;
+    }
+
+    /* Edit name button */
+    .edit-name-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border: none;
+      background: transparent;
+      color: #9CA3AF;
+      cursor: pointer;
+      padding: 0;
+      margin-left: 4px;
+      vertical-align: middle;
+      border-radius: 3px;
+      transition: background 0.15s ease, color 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .edit-name-btn:hover {
+      background: #E5E7EB;
+      color: #374151;
+    }
+
+    body.dark .edit-name-btn {
+      color: #64748B;
+    }
+
+    body.dark .edit-name-btn:hover {
+      background: #334155;
+      color: #E2E8F0;
+    }
+
+    .edit-name-btn svg {
+      width: 11px;
+      height: 11px;
+    }
+
+    .account-title-row {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .account-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .account-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #111827;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.3;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .account-meta {
+      font-size: 11px;
+      color: #9CA3AF;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .account-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .card-btn {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 11px;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .card-btn:disabled {
+      opacity: 0.5;
+      cursor: wait;
+    }
+
+    .btn-save {
+      background: linear-gradient(135deg, #FCD34D, #FBBF24);
+      color: #78350F;
+    }
+
+    .btn-save:hover:not(:disabled) {
+      background: linear-gradient(135deg, #FBBF24, #F59E0B);
+      transform: translateY(-1px);
+    }
+
+    .btn-login {
+      background: linear-gradient(135deg, #60A5FA, #3B82F6);
+      color: white;
+    }
+
+    .btn-login:hover:not(:disabled) {
+      background: linear-gradient(135deg, #3B82F6, #2563EB);
+      transform: translateY(-1px);
+    }
+
+    /* Delete badge */
+    .delete-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #EF4444;
+      color: white;
+      border: 2px solid #FFFFFF;
+      border: none;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+      transition: background 0.15s ease, transform 0.15s ease;
+      z-index: 2;
+    }
+
+    .delete-badge:hover {
+      background: #DC2626;
+      transform: scale(1.1);
+    }
+
+    .account-card.has-session .delete-badge {
+      display: flex;
+    }
+
+    .delete-badge svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Share button */
+    .btn-share {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #7048E8;
+      color: white;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+    }
+
+    .btn-share:hover:not(:disabled) {
+      background: #5F3DC4;
+    }
+
+    .btn-share svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .account-card.has-session .btn-share {
+      display: flex;
+    }
+
+    /* ---------- Footer ---------- */
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #F3F4F6;
+      font-size: 11px;
+      color: #6B7280;
+    }
+
+    .footer-stats {
+      font-weight: 500;
+    }
+
+    .footer-clear {
+      background: none;
+      border: none;
+      color: #6B7280;
+      cursor: pointer;
+      font-size: 11px;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    .footer-clear:hover {
+      color: #EF4444;
+    }
+
+    /* ---------- Toast ---------- */
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #111827;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 500;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      opacity: 0;
+      pointer-events: none;
+      max-width: 320px;
+      text-align: center;
+      z-index: 1000;
+    }
+
+    .toast.visible {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast.error {
+      background: #EF4444;
+    }
+
+    .toast.success {
+      background: #22C55E;
+    }
+
+    /* ---------- Modal ---------- */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      width: 90%;
+      max-width: 320px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal h3 {
+      font-size: 15px;
+      margin-bottom: 8px;
+      color: #111827;
+      font-weight: 700;
+    }
+
+    .modal p {
+      font-size: 12px;
+      color: #495057;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .modal-actions button {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .btn-secondary {
+      background: #F3F4F6;
+      color: #495057;
+    }
+
+    .btn-secondary:hover {
+      background: #E5E7EB;
+    }
+
+    .btn-danger {
+      background: #EF4444;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #DC2626;
+    }
+
+    /* ---------- Spinner ---------- */
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    .btn-save .spinner {
+      border-color: rgba(120, 53, 15, 0.3);
+      border-top-color: #78350F;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      75% { transform: translateX(8px); }
+    }
+
+    /* ---------- Empty state ---------- */
+    .empty-hint {
+      text-align: center;
+      padding: 20px 12px;
+      color: #9CA3AF;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    /* ---------- Search bar (collapsible) ---------- */
+    .search-bar {
+      display: none;
+      margin-bottom: 16px;
+      gap: 8px;
+      align-items: center;
+      background: #F9FAFB;
+      border: 1px solid #E5E7EB;
+      border-radius: 10px;
+      padding: 8px 12px;
+    }
+
+    .search-bar.visible {
+      display: flex;
+    }
+
+    .search-bar svg {
+      width: 16px;
+      height: 16px;
+      color: #6B7280;
+      flex-shrink: 0;
+    }
+
+    .search-bar input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 13px;
+      color: #111827;
+      font-family: inherit;
+    }
+
+    .search-bar input::placeholder {
+      color: #9CA3AF;
+    }
+
+    .search-bar .clear-search {
+      width: 18px;
+      height: 18px;
+      border: none;
+      background: none;
+      color: #9CA3AF;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: 50%;
+    }
+
+    .search-bar .clear-search:hover {
+      background: #E5E7EB;
+      color: #374151;
+    }
+
+    .search-bar .clear-search svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* ---------- Share modal ---------- */
+    .share-modal {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      width: 90%;
+      max-width: 320px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .share-modal h3 {
+      font-size: 15px;
+      margin-bottom: 4px;
+      color: #111827;
+      font-weight: 700;
+    }
+
+    .share-modal .share-subtitle {
+      font-size: 12px;
+      color: #6B7280;
+      margin-bottom: 16px;
+    }
+
+    .share-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .share-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid #E5E7EB;
+      border-radius: 10px;
+      cursor: pointer;
+      background: white;
+      font-size: 13px;
+      font-weight: 500;
+      color: #111827;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      text-align: left;
+    }
+
+    .share-option:hover {
+      border-color: #06B6D4;
+      background: #F0FDFF;
+    }
+
+    .share-option svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .share-option.copy svg { color: #6B7280; }
+    .share-option.whatsapp svg { color: #25D366; }
+    .share-option.telegram svg { color: #0088CC; }
+
+    /* ---------- Settings modal ---------- */
+    .settings-modal,
+    .security-modal {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      width: 90%;
+      max-width: 340px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .settings-modal h3,
+    .security-modal h3 {
+      font-size: 15px;
+      margin-bottom: 16px;
+      color: #111827;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #F3F4F6;
+    }
+
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+
+    .setting-label {
+      flex: 1;
+    }
+
+    .setting-label .name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .setting-label .desc {
+      font-size: 11px;
+      color: #6B7280;
+      margin-top: 2px;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #D1D5DB;
+      border-radius: 20px;
+      transition: 0.2s;
+    }
+
+    .toggle .slider:before {
+      content: "";
+      position: absolute;
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+
+    .toggle input:checked + .slider {
+      background: #06B6D4;
+    }
+
+    .toggle input:checked + .slider:before {
+      transform: translateX(16px);
+    }
+
+    .setting-action-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #E5E7EB;
+      background: white;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      color: #374151;
+      flex-shrink: 0;
+    }
+
+    .setting-action-btn:hover {
+      background: #F9FAFB;
+      border-color: #D1D5DB;
+    }
+
+    .setting-action-btn.danger {
+      color: #EF4444;
+      border-color: #FECACA;
+    }
+
+    .setting-action-btn.danger:hover {
+      background: #FEF2F2;
+    }
+
+    .setting-action-btn.primary {
+      color: white;
+      background: #06B6D4;
+      border-color: #06B6D4;
+    }
+
+    .setting-action-btn.primary:hover {
+      background: #0891B2;
+      border-color: #0891B2;
+    }
+
+    /* Security modal specific */
+    .security-info {
+      background: #F9FAFB;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: #374151;
+      line-height: 1.6;
+    }
+
+    .security-info code {
+      font-family: 'SF Mono', Monaco, monospace;
+      background: #E5E7EB;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #111827;
+      word-break: break-all;
+    }
+
+    .security-info .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .security-info .info-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .security-info .info-label {
+      color: #6B7280;
+    }
+
+    .security-info .info-value {
+      font-weight: 600;
+      color: #111827;
+    }
+
+    /* ---------- Dark mode ---------- */
+    body.dark {
+      background: #0F172A;
+      color: #F1F5F9;
+    }
+
+    body.dark .container {
+      background: #1E293B;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    body.dark .header {
+      border-bottom-color: #334155;
+    }
+
+    body.dark .header-text .subtitle,
+    body.dark .account-meta,
+    body.dark .footer,
+    body.dark .footer-clear,
+    body.dark .setting-label .desc,
+    body.dark .security-info .info-label {
+      color: #94A3B8;
+    }
+
+    body.dark .header-icon,
+    body.dark .header-search {
+      color: #CBD5E1;
+    }
+
+    body.dark .account-title,
+    body.dark .setting-label .name,
+    body.dark .security-info .info-value,
+    body.dark .modal h3,
+    body.dark .share-modal h3 {
+      color: #F1F5F9;
+    }
+
+    body.dark .account-card {
+      background: #1E293B;
+      border-color: #334155;
+    }
+
+    body.dark .account-card:hover {
+      border-color: #475569;
+    }
+
+    body.dark .search-bar {
+      background: #0F172A;
+      border-color: #334155;
+    }
+
+    body.dark .search-bar input {
+      color: #F1F5F9;
+    }
+
+    body.dark .modal,
+    body.dark .share-modal,
+    body.dark .settings-modal,
+    body.dark .security-modal {
+      background: #1E293B;
+    }
+
+    body.dark .share-option {
+      background: #1E293B;
+      border-color: #334155;
+      color: #F1F5F9;
+    }
+
+    body.dark .share-option:hover {
+      border-color: #06B6D4;
+      background: #164E63;
+    }
+
+    body.dark .setting-action-btn {
+      background: #334155;
+      border-color: #475569;
+      color: #E2E8F0;
+    }
+
+    body.dark .setting-action-btn:hover {
+      background: #475569;
+    }
+
+    body.dark .setting-action-btn.danger {
+      color: #FCA5A5;
+      border-color: #7F1D1D;
+    }
+
+    body.dark .security-info {
+      background: #0F172A;
+      color: #CBD5E1;
+    }
+
+    body.dark .security-info code {
+      background: #334155;
+      color: #F1F5F9;
+    }
+
+    body.dark .btn-secondary {
+      background: #334155;
+      color: #E2E8F0;
+    }
+
+    body.dark .empty-hint {
+      color: #64748B;
+    }
+
+    body.dark .footer-clear:hover {
+      color: #FCA5A5;
+    }
+
+    /* Hidden file input for import */
+    .file-input-hidden {
+      position: absolute;
+      width: 0;
+      height: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ---------- Sort dropdown ---------- */
+    .sort-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+
+    .sort-bar label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sort-bar select {
+      padding: 4px 8px;
+      border: 1px solid #E5E7EB;
+      border-radius: 6px;
+      font-size: 12px;
+      background: white;
+      cursor: pointer;
+      color: #111827;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .sort-bar select:hover {
+      border-color: #06B6D4;
+    }
+
+    body.dark .sort-bar select {
+      background: #334155;
+      border-color: #475569;
+      color: #F1F5F9;
+    }
+
+    body.dark .sort-bar label {
+      color: #94A3B8;
+    }
+
+    /* ---------- Share expiry row ---------- */
+    .share-expiry-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #F9FAFB;
+      border-radius: 8px;
+    }
+
+    body.dark .share-expiry-row {
+      background: #0F172A;
+    }
+
+    .share-expiry-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .share-expiry-select {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid #E5E7EB;
+      border-radius: 6px;
+      font-size: 12px;
+      background: white;
+      cursor: pointer;
+      color: #111827;
+      font-family: inherit;
+      outline: none;
+    }
+
+    body.dark .share-expiry-label {
+      color: #CBD5E1 !important;
+    }
+
+    body.dark .share-expiry-select {
+      background: #334155 !important;
+      border-color: #475569 !important;
+      color: #F1F5F9 !important;
+    }
+
+    /* ---------- Animations ---------- */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* slideUp animation removed — caused Firefox popup blink */
+
+    .modal-backdrop {
+      animation: fadeIn 0.15s ease;
+    }
+
+    .modal,
+    .share-modal,
+    .settings-modal,
+    .security-modal {
+      animation: scaleIn 0.2s ease;
+    }
+
+    .account-card {
+      /* Animation removed — caused Firefox popup height oscillation (blink loop) */
+    }
+
+    /* ---------- Usage stats in card ---------- */
+    .usage-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      color: #6B7280;
+      background: #F3F4F6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-top: 4px;
+    }
+
+    body.dark .usage-badge {
+      background: #334155;
+      color: #94A3B8;
+    }
+
+    /* ---------- QR option button ---------- */
+    .share-option.qr svg {
+      color: #111827;
+    }
+
+    body.dark .share-option.qr svg {
+      color: #F1F5F9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <button class="header-search" id="btn-search" title="Search saved sessions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <div class="header-title-group">
+          <img class="header-cookie" src="./Icon48.png" alt="Session Share">
+          <div class="header-text">
+            <div class="title">Session Share</div>
+            <div class="subtitle">Made by Sandeep Kumar</div>
+          </div>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="header-icon" id="btn-settings" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+        <button class="header-icon" id="btn-security" title="Security info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Primary action buttons -->
+    <div class="menu-list">
+      <button class="menu-item" id="btn-copy">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16 1H4C2.89 1 2 1.89 2 3V17H4V3H16V1ZM19 5H8C6.89 5 6 5.89 6 7V21C6 22.10 6.89 23 8 23H19C20.10 23 21 22.10 21 21V7C21 5.89 20.10 5 19 5M19 21H8V7H19V21Z"/>
+        </svg>
+        Copy Session
+      </button>
+      <button class="menu-item" id="btn-paste">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+        </svg>
+        Paste Session
+      </button>
+    </div>
+
+    <!-- CURRENT SESSION slot (always at top, separate from saved sessions) -->
+    <div class="accounts-list" id="current-session-list">
+      <!-- CURRENT SESSION card rendered here by popup.js -->
+    </div>
+
+    <!-- Sort bar (only shows when saved sessions exist) -->
+    <div class="sort-bar" id="sort-bar" style="display:none;">
+      <label for="sort-select">Sort by</label>
+      <select id="sort-select">
+        <option value="recent">Most Recent</option>
+        <option value="oldest">Oldest First</option>
+        <option value="domain-az">Domain (A-Z)</option>
+        <option value="domain-za">Domain (Z-A)</option>
+        <option value="most-used">Most Used</option>
+      </select>
+    </div>
+
+    <!-- Saved sessions list (sorted) -->
+    <div class="accounts-list" id="accounts-list">
+      <!-- Saved session cards rendered here by popup.js -->
+    </div>
+
+    <div class="empty-hint" id="empty-hint" style="display:none;">
+      No saved sessions yet. Open any logged-in website, then click "Save Session" above to capture it.
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <span class="footer-stats" id="stats-text">Loading...</span>
+      <button class="footer-clear" id="btn-clear-all">Clear All Data</button>
+    </div>
+  </div>
+
+  <!-- Search bar (collapsible) -->
+  <div class="search-bar" id="search-bar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <input type="text" id="search-input" placeholder="Filter saved sessions by domain..." autocomplete="off">
+    <button class="clear-search" id="clear-search" title="Clear search">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Confirm modal -->
+  <div class="modal-backdrop" id="confirm-modal">
+    <div class="modal">
+      <h3 id="modal-title">Confirm</h3>
+      <p id="modal-message">Are you sure?</p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="modal-cancel">Cancel</button>
+        <button class="btn-danger" id="modal-confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share modal -->
+  <div class="modal-backdrop" id="share-modal">
+    <div class="share-modal">
+      <h3>Share Session</h3>
+      <div class="share-subtitle" id="share-domain">Choose how you want to share</div>
+
+      <!-- Expiry selector -->
+      <div class="share-expiry-row">
+        <label for="share-expiry" class="share-expiry-label">Token expires:</label>
+        <select id="share-expiry" class="share-expiry-select">
+          <option value="0">Never</option>
+          <option value="1">In 1 hour</option>
+          <option value="24">In 24 hours</option>
+          <option value="168">In 7 days</option>
+        </select>
+      </div>
+
+      <div class="share-options">
+        <button class="share-option copy" id="share-copy">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16 1H4C2.89 1 2 1.89 2 3V17H4V3H16V1ZM19 5H8C6.89 5 6 5.89 6 7V21C6 22.10 6.89 23 8 23H19C20.10 23 21 22.10 21 21V7C21 5.89 20.10 5 19 5M19 21H8V7H19V21Z"/>
+          </svg>
+          Copy to Clipboard
+        </button>
+        <button class="share-option whatsapp" id="share-whatsapp">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+          </svg>
+          Share via WhatsApp
+        </button>
+        <button class="share-option telegram" id="share-telegram">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.173-.18 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.244-1.349-.374-1.297-.789.027-.216.325-.437.893-.662 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+          </svg>
+          Share via Telegram
+        </button>
+        <button class="share-option qr" id="share-qr">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM13 21h8v-8h-8v8zm2-6h4v4h-4v-4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4z"/>
+          </svg>
+          Show QR Code
+        </button>
+      </div>
+
+      <!-- QR code display area -->
+      <div id="qr-display" style="display:none;margin-top:16px;text-align:center;">
+        <img id="qr-image" style="width:180px;height:180px;border-radius:8px;border:1px solid #E5E7EB;" alt="QR Code">
+        <div style="font-size:11px;color:#6B7280;margin-top:8px;">Scan this QR code to receive the session</div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 16px;">
+        <button class="btn-secondary" id="share-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview modal (before paste) -->
+  <div class="modal-backdrop" id="preview-modal">
+    <div class="modal" style="max-width:340px;">
+      <h3 id="preview-title">Session Preview</h3>
+      <div id="preview-content" style="margin-bottom:16px;">
+        <div style="background:#F9FAFB;border-radius:10px;padding:14px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:12px;color:#6B7280;">Domain:</span>
+            <span style="font-size:12px;font-weight:600;color:#111827;" id="preview-domain">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:12px;color:#6B7280;">Total cookies:</span>
+            <span style="font-size:12px;font-weight:600;color:#111827;" id="preview-count">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:12px;color:#6B7280;">HttpOnly:</span>
+            <span style="font-size:12px;font-weight:600;color:#EF4444;" id="preview-httponly">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:12px;color:#6B7280;">Secure:</span>
+            <span style="font-size:12px;font-weight:600;color:#22C55E;" id="preview-secure">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:12px;color:#6B7280;">Session cookies:</span>
+            <span style="font-size:12px;font-weight:600;color:#F59E0B;" id="preview-session">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-size:12px;color:#6B7280;">Expires:</span>
+            <span style="font-size:12px;font-weight:600;color:#111827;" id="preview-expiry">Never</span>
+          </div>
+        </div>
+        <div id="preview-cookie-names" style="font-size:11px;color:#6B7280;line-height:1.6;word-break:break-all;"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="preview-cancel">Cancel</button>
+        <button class="btn-danger" id="preview-apply" style="background:#22C55E;">Apply Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual paste modal (fallback when clipboard read fails) -->
+  <div class="modal-backdrop" id="manual-paste-modal">
+    <div class="modal" style="max-width:340px;">
+      <h3>Paste Session Token</h3>
+      <p style="font-size:12px;color:#6B7280;margin-bottom:12px;line-height:1.5;">
+        Clipboard read failed (common in Firefox). Manually paste the session token below:
+      </p>
+      <textarea id="manual-paste-input" rows="4"
+        style="width:100%;padding:10px;font-size:11px;font-family:monospace;border:1px solid #E5E7EB;border-radius:8px;resize:vertical;outline:none;margin-bottom:12px;"
+        placeholder="session_paste v3.X.Y.Z..."></textarea>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="manual-paste-cancel">Cancel</button>
+        <button class="btn-danger" id="manual-paste-apply" style="background:#22C55E;">Apply Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIN lock screen -->
+  <div class="modal-backdrop" id="pin-lock-modal" style="background:#0F172A;">
+    <div class="modal" style="background:white;max-width:300px;text-align:center;">
+      <div style="margin-bottom:20px;">
+        <img src="./Icon48.png" alt="Lock" style="width:48px;height:48px;margin-bottom:12px;">
+        <h3 style="margin-bottom:4px;">Enter PIN</h3>
+        <p style="font-size:12px;color:#6B7280;margin-bottom:16px;">Enter your PIN to unlock Session Share</p>
+      </div>
+      <input type="password" id="pin-input" maxlength="8" inputmode="numeric" pattern="[0-9]*"
+             style="width:100%;padding:14px;font-size:24px;text-align:center;letter-spacing:8px;border:2px solid #E5E7EB;border-radius:10px;margin-bottom:12px;outline:none;font-family:monospace;"
+             placeholder="••••">
+      <div id="pin-error" style="font-size:12px;color:#EF4444;margin-bottom:12px;min-height:16px;"></div>
+      <button class="btn-danger" id="pin-unlock" style="width:100%;background:#06B6D4;">Unlock</button>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal-backdrop" id="settings-modal">
+    <div class="settings-modal">
+      <h3>
+        <span>Settings</span>
+        <button class="header-icon" id="settings-close" title="Close" style="width:24px;height:24px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </h3>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <div class="name">Dark Mode</div>
+          <div class="desc">Switch to dark theme</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="setting-dark-mode">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <div class="name">Auto-close Popup</div>
+          <div class="desc">Close popup after copy/paste actions</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="setting-autoclose" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <div class="name">Show Notifications</div>
+          <div class="desc">Display desktop notifications for actions</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="setting-notifications" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <div class="name">Export Sessions</div>
+          <div class="desc">Download encrypted backup of all saved sessions</div>
+        </div>
+        <button class="setting-action-btn primary" id="setting-export">Export</button>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <div class="name">Import Sessions</div>
+          <div class="desc">Restore from encrypted backup file</div>
+        </div>
+        <button class="setting-action-btn" id="setting-import">Import</button>
+        <input type="file" id="import-file-input" class="file-input-hidden" accept=".json,application/json">
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <div class="name">PIN Protection</div>
+          <div class="desc" id="pin-status-desc">Lock the extension with a 4-8 digit PIN</div>
+        </div>
+        <button class="setting-action-btn primary" id="setting-pin">Set PIN</button>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <div class="name">Cleanup Old Sessions</div>
+          <div class="desc">Remove sessions unused for 90+ days</div>
+        </div>
+        <button class="setting-action-btn" id="setting-cleanup">Clean Up</button>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <div class="name">About</div>
+          <div class="desc">Session Share v2.0.0 · Made by Sandeep Kumar</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Security modal -->
+  <div class="modal-backdrop" id="security-modal">
+    <div class="security-modal">
+      <h3>
+        <span>Security & Privacy</span>
+        <button class="header-icon" id="security-close" title="Close" style="width:24px;height:24px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </h3>
+
+      <div class="security-info" id="security-info">
+        <div class="info-row">
+          <span class="info-label">Master key fingerprint:</span>
+          <span class="info-value"><code id="key-fingerprint">Loading...</code></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Encryption:</span>
+          <span class="info-value">AES-GCM-256</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Saved sessions:</span>
+          <span class="info-value" id="sec-session-count">0</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Last activity:</span>
+          <span class="info-value" id="sec-last-activity">—</span>
+        </div>
+      </div>
+
+      <p style="font-size:12px;color:#6B7280;line-height:1.5;margin-bottom:12px;">
+        <strong>How it works:</strong> Local saved sessions are encrypted with a per-user master key stored in chrome.storage.local. Shared tokens use ephemeral keys for integrity. Always share tokens only over trusted E2EE channels (WhatsApp, Signal, Telegram secret chat).
+      </p>
+
+      <div class="setting-row">
+        <div class="setting-label">
+          <div class="name">Rotate Master Key</div>
+          <div class="desc">Generates a new key. All existing saved sessions will be permanently lost.</div>
+        </div>
+        <button class="setting-action-btn danger" id="setting-rotate-key">Rotate</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

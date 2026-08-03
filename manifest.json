@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "Session Share",
+  "version": "2.0.0",
+  "description": "Share website login sessions securely with friends via encrypted tokens. Use responsibly and only with people you trust.",
+  "background": {
+    "scripts": ["config.js", "cookies.js", "background.js"]
+  },
+  "action": {
+    "default_icon": {
+      "48": "Icon48.png",
+      "128": "Icon128.png"
+    },
+    "default_popup": "popup.html",
+    "default_title": "Session Share"
+  },
+  "omnibox": {
+    "keyword": "session_paste"
+  },
+  "icons": {
+    "48": "Icon48.png",
+    "128": "Icon128.png"
+  },
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs",
+    "activeTab",
+    "notifications",
+    "contextMenus",
+    "clipboardRead",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'self'; img-src 'self' https: data:"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "session-share-v2@sandeepkumar.dev",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  }
+}
